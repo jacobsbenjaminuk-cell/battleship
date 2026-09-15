@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRandomAI } from './ai';
 import { createInitialState, gameReducer, opponentView } from './game';
+import { createSeededRandom } from './random';
 import { TOTAL_SHIP_CELLS, type Coordinate, type GameState } from './types';
 
 function startedGame(): GameState {
@@ -169,7 +170,7 @@ describe('opponent view', () => {
 
   it('never repeats a shot the AI has already taken', () => {
     let state = startedGame();
-    const ai = createRandomAI();
+    const ai = createRandomAI(createSeededRandom(17));
     const seen = new Set<string>();
 
     for (let turn = 0; turn < 220; turn += 1) {
