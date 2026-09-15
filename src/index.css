@@ -37,6 +37,13 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.grid-shadow {
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }

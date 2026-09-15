@@ -49,7 +49,7 @@ export function PlacementPhase({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'r' || event.key === 'R') {
+      if ((event.key === 'r' || event.key === 'R') && !event.metaKey && !event.ctrlKey) {
         setOrientation((current) => (current === 'horizontal' ? 'vertical' : 'horizontal'));
       }
     };
@@ -117,7 +117,8 @@ export function PlacementPhase({
 
       <div className="flex w-full max-w-xs flex-col gap-4">
         <p className="text-xs leading-relaxed text-muted">
-          Click a cell to drop the selected ship, or drag from bow to stern. Press
+          Tap a cell to drop the selected ship, or drag from bow to stern. With the keyboard,
+          arrow to a cell and press Enter. Press
           <span className="mx-1 bg-sea px-1 py-0.5 text-ink">R</span>
           to rotate.
         </p>
@@ -130,6 +131,7 @@ export function PlacementPhase({
               <li key={ship.id}>
                 <button
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => setSelected(ship.id)}
                   className={`flex w-full items-center justify-between px-3 py-2 text-xs transition-colors duration-[120ms] ease-out ${
                     isSelected ? 'bg-sea-hover text-ink' : 'bg-panel text-muted hover:bg-sea'
@@ -137,9 +139,19 @@ export function PlacementPhase({
                 >
                   <span>{ship.name}</span>
                   <span className="flex items-center gap-3">
-                    <span>{ship.size}</span>
+                    <span>
+                      {ship.size}
+                      <span className="sr-only"> cells</span>
+                    </span>
                     <span className={isPlaced ? 'text-steel' : 'text-muted'}>
-                      {isPlaced ? 'placed' : '—'}
+                      {isPlaced ? (
+                        'placed'
+                      ) : (
+                        <>
+                          <span aria-hidden>—</span>
+                          <span className="sr-only">not placed</span>
+                        </>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -169,7 +181,10 @@ export function PlacementPhase({
         </div>
 
         <div className="flex flex-wrap gap-[2px]">
-          <ToolButton onClick={() => setOrientation((o) => (o === 'horizontal' ? 'vertical' : 'horizontal'))}>
+          <ToolButton
+            label={`Rotate, currently ${orientation}`}
+            onClick={() => setOrientation((o) => (o === 'horizontal' ? 'vertical' : 'horizontal'))}
+          >
             Rotate · {orientation === 'horizontal' ? 'H' : 'V'}
           </ToolButton>
           <ToolButton onClick={() => dispatch({ type: 'randomise' })}>Randomise</ToolButton>
@@ -187,16 +202,27 @@ export function PlacementPhase({
           Start battle
         </button>
 
-        <p className="min-h-4 text-xs text-miss-mark">{state.message}</p>
+        <p className="min-h-4 text-xs text-miss-mark" aria-hidden>
+          {state.message}
+        </p>
       </div>
     </div>
   );
 }
 
-function ToolButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function ToolButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label?: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
+      {...(label ? { 'aria-label': label } : {})}
       onClick={onClick}
       className="bg-panel px-3 py-2 text-xs text-ink transition-colors duration-[120ms] ease-out hover:bg-sea-hover"
     >
