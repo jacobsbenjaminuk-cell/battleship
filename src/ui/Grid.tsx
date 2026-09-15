@@ -109,6 +109,11 @@ export function Grid({
     }
   };
 
+  const leaveGrid = () => {
+    hovered.current = null;
+    onPointerLeaveGrid?.();
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>, coord: Coordinate) => {
     const step = ARROWS[event.key];
     if (step) {
@@ -149,11 +154,8 @@ export function Grid({
         }`}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={onPointerLeaveGrid}
-        onPointerLeave={() => {
-          hovered.current = null;
-          onPointerLeaveGrid?.();
-        }}
+        onPointerCancel={leaveGrid}
+        onPointerLeave={leaveGrid}
       >
         <div
           role="row"
