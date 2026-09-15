@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   createAI,
   createGameReducer,
@@ -7,6 +7,10 @@ import {
   opponentView,
   type Board,
   type Difficulty,
+  type GameAction,
+  type GameReducer,
+  type GameState,
+  type RandomSource,
 } from '../core';
 import {
   fleetLayout,
@@ -18,40 +22,72 @@ import {
 
 const AI_DELAY_MS = 450;
 
-/** One seed drives both fleets and every AI shot, so a game can be replayed. */
-export function useBattleship(seed: number = Date.now()) {
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+type Engine = {
+  readonly seed: number;
+  readonly random: RandomSource;
+  readonly reducer: GameReducer;
+};
 
-  const engine = useMemo(() => {
-    const random = createSeededRandom(seed);
-    return { random, reducer: createGameReducer(random) };
-  }, [seed]);
+function createEngine(seed: number): Engine {
+  const random = createSeededRandom(seed);
+  return { seed, random, reducer: createGameReducer(random) };
+}
+
+/** Replaces the whole game, for when a restart deals from a new stream. */
+type LoadAction = { readonly type: 'load'; readonly state: GameState };
+
+/**
+ * One seed drives both fleets and every AI shot, so a game can be replayed. The
+ * seed is captured once rather than read per render, and a restart takes a new
+ * seed with a new stream, so the seed shipped in the export always describes
+ * the game it came from.
+ */
+export function useBattleship(initialSeed?: number) {
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [engine, setEngine] = useState<Engine>(() => createEngine(initialSeed ?? Date.now()));
+  const current = useRef(engine);
+  current.current = engine;
+
+  const [state, dispatch] = useReducer(
+    (previous: GameState, action: GameAction | LoadAction): GameState =>
+      action.type === 'load' ? action.state : current.current.reducer(previous, action),
+    engine,
+    ({ random }) => createInitialState(random),
+  );
+
+  const play = useCallback((action: GameAction) => {
+    if (action.type !== 'reset') {
+      dispatch(action);
+      return;
+    }
+    const next = createEngine(Date.now());
+    current.current = next;
+    setEngine(next);
+    dispatch({ type: 'load', state: createInitialState(next.random) });
+  }, []);
 
   const ai = useMemo(() => createAI(difficulty, engine.random), [difficulty, engine]);
-
-  const [state, dispatch] = useReducer(engine.reducer, engine, ({ random }) =>
-    createInitialState(random),
-  );
 
   useEffect(() => {
     if (state.phase !== 'play' || state.turn !== 'opponent') return;
     const view = opponentView(state, 'opponent');
     const timer = window.setTimeout(() => {
-      dispatch({ type: 'fire', by: 'opponent', at: ai.nextShot(view) });
+      play({ type: 'fire', by: 'opponent', at: ai.nextShot(view) });
     }, AI_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [state, ai]);
+  }, [state, ai, play]);
 
   const commitment = useCommitment(state.opponent.board);
 
-  return { state, dispatch, difficulty, setDifficulty, seed, ai, commitment };
+  return { state, dispatch: play, difficulty, setDifficulty, seed: engine.seed, ai, commitment };
 }
 
 /**
  * Publishes a hash of the enemy fleet as soon as it exists, and a fresh one
  * whenever a new fleet is dealt. Hits change the board object but not the
  * layout, so the commitment is keyed on the layout itself and stays put for the
- * whole game.
+ * whole game; until the hash for the layout in play is ready there is no
+ * commitment to show, rather than the previous game's.
  */
 function useCommitment(board: Board): Commitment | null {
   const layout = useMemo(() => fleetLayout(board), [board.ships]);
@@ -59,24 +95,26 @@ function useCommitment(board: Board): Commitment | null {
   const latest = useRef(layout);
   latest.current = layout;
 
-  const [commitment, setCommitment] = useState<Commitment | null>(null);
+  const [published, setPublished] = useState<{ key: string; commitment: Commitment } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const current = latest.current;
-    if (current.length === 0) {
-      setCommitment(null);
+    const fleet = latest.current;
+    if (fleet.length === 0) {
+      setPublished(null);
       return;
     }
     const salt = randomSalt();
-    const preimage = layoutPreimage(current, salt);
+    const preimage = layoutPreimage(fleet, salt);
     void sha256Hex(preimage).then((hash) => {
-      if (!cancelled) setCommitment({ hash, salt, layout: current, preimage });
+      if (!cancelled) {
+        setPublished({ key: layoutKey, commitment: { hash, salt, layout: fleet, preimage } });
+      }
     });
     return () => {
       cancelled = true;
     };
   }, [layoutKey]);
 
-  return commitment;
+  return published !== null && published.key === layoutKey ? published.commitment : null;
 }
