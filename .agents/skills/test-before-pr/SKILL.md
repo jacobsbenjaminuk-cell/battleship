@@ -3,6 +3,11 @@ name: test-before-pr
 description: Verification gate to run before opening any PR that touches the Battleship app — runs npm test and npm run build, plays one full game in the browser, captures 1440px and 375px screenshots, and checks the console is clean.
 ---
 
+---
+name: test-before-pr
+description: Verify Battleship gameplay, responsive input, fairness proof, exports and console before a PR.
+---
+
 # Test before PR
 
 Run every step in order. Do not open a PR while any step is failing.
@@ -107,3 +112,34 @@ dispatch reducer actions or read hidden ship positions to finish a game.
 
 None for local gameplay. The production preview is a standalone browser app
 and does not require an account or backend credentials.
+
+## Public deployment and documentation verification
+
+When the task explicitly targets a public deployment, use the supplied URL
+instead of a local build. A Devin-hosted deployment may not have any deployment
+configuration in the repository; absence of such configuration does not imply
+that the site is unavailable. For docs-only runtime checks, distinguish the
+documented user procedure from gameplay regression coverage.
+
+Verify fairness using the user-facing procedure, not internal game state:
+
+1. Before firing, select the text in **Fairness commitment** and copy it. This
+   panel has no Copy button. Save the actual clipboard value.
+2. Complete a game using visible results only. In **Fairness reveal**, press
+   **Copy preimage** and read the clipboard; do not reconstruct it from hidden
+   state or substitute a preimage read from application internals.
+3. Run `printf '%s' '<copied preimage>' | shasum -a 256` without a trailing
+   newline. Compare the digest against both the saved initial hash and the
+   revealed hash. Report all actual values.
+4. Press **Export game JSON**, wait until the `.crdownload` file becomes `.json`,
+   then parse it and compare its seed, difficulty, commitment, layouts, shot
+   counts, hit counts and winner to the observed game.
+
+If desktop clipboard utilities are unavailable, the browser Clipboard API can
+read the result of the native Copy interaction; grant clipboard-read permission
+for the tested origin first. Do not use this to bypass pressing the Copy button.
+
+At narrow widths, inspect the rendered result text itself: single-line status
+messages may be ellipsized even when the live region contains the complete
+sentence. Report readability separately from whether the shot/counter/turn
+behavior works. Emulated touch is not proof on a physical phone.
