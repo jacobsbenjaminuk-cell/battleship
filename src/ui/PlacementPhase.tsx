@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  DIFFICULTIES,
+  DIFFICULTY_BLURBS,
+  DIFFICULTY_LABELS,
   FLEET,
   dragPlacement,
   placeShip,
   removeShip,
   shipCells,
   type Coordinate,
+  type Difficulty,
   type GameState,
   type Orientation,
   type ShipId,
@@ -17,9 +21,16 @@ import { ownBoardMarks, withPreview } from './marks';
 type PlacementPhaseProps = {
   readonly state: GameState;
   readonly dispatch: (action: GameAction) => void;
+  readonly difficulty: Difficulty;
+  readonly onDifficultyChange: (difficulty: Difficulty) => void;
 };
 
-export function PlacementPhase({ state, dispatch }: PlacementPhaseProps) {
+export function PlacementPhase({
+  state,
+  dispatch,
+  difficulty,
+  onDifficultyChange,
+}: PlacementPhaseProps) {
   const board = state.player.board;
   const placed = useMemo(() => new Set(board.ships.map((ship) => ship.id)), [board.ships]);
   const [orientation, setOrientation] = useState<Orientation>('horizontal');
@@ -136,6 +147,26 @@ export function PlacementPhase({ state, dispatch }: PlacementPhaseProps) {
             );
           })}
         </ul>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-xs tracking-[0.2em] text-muted uppercase">Enemy skill</span>
+          <div className="flex gap-[2px]">
+            {DIFFICULTIES.map((level) => (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={level === difficulty}
+                onClick={() => onDifficultyChange(level)}
+                className={`flex-1 px-3 py-2 text-xs transition-colors duration-[120ms] ease-out ${
+                  level === difficulty ? 'bg-ember text-ink' : 'bg-panel text-muted hover:bg-sea'
+                }`}
+              >
+                {DIFFICULTY_LABELS[level]}
+              </button>
+            ))}
+          </div>
+          <p className="min-h-8 text-xs leading-relaxed text-muted">{DIFFICULTY_BLURBS[difficulty]}</p>
+        </div>
 
         <div className="flex flex-wrap gap-[2px]">
           <ToolButton onClick={() => setOrientation((o) => (o === 'horizontal' ? 'vertical' : 'horizontal'))}>

@@ -16,6 +16,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Benchmark the difficulties
+        run: npm run bench
       - name: Check src/core has no React imports
         run: |
           if grep -ri react src/core; then
