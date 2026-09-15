@@ -83,6 +83,9 @@ describe('announce', () => {
     const back = reducer(once, { type: 'fire', by: 'opponent', at: { row: 0, col: 0 } });
     const again = reducer(back, { type: 'fire', by: 'player', at: target });
     expect(announce(back, again)).toMatch(/^[A-J]\d+ has already been fired at\.$/);
+    const thrice = reducer(again, { type: 'fire', by: 'player', at: target });
+    expect(announce(again, thrice)).toBe(again.message);
+    expect(announce(thrice, thrice)).toBeNull();
 
     let current = state;
     for (const ship of state.opponent.board.ships) {

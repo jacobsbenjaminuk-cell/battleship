@@ -79,7 +79,7 @@ export function announce(previous: GameState, next: GameState): string | null {
     if (previous.player.board.ships.length > 0 && next.player.board.ships.length === 0) {
       return 'Board cleared.';
     }
-    return next.message && next.message !== previous.message ? next.message : null;
+    return next.message;
   }
 
   if (previous.phase === 'placement') {
@@ -96,9 +96,9 @@ export function announce(previous: GameState, next: GameState): string | null {
     parts.push(enemyShot(theirs, next.player.board));
   }
 
-  if (parts.length === 0) {
-    return next.message && next.message !== previous.message ? next.message : null;
-  }
+  // No shot landed, so the reducer rejected something; repeat the reason even
+  // if it is the same sentence as last time.
+  if (parts.length === 0) return next.message;
 
   if (next.phase === 'gameover') {
     parts.push(ending(next));

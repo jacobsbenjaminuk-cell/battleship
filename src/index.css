@@ -37,6 +37,12 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+button:focus,
+[role='gridcell']:focus {
+  outline: 2px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
