@@ -77,6 +77,15 @@ describe('view reconstruction', () => {
     expect(knowledge.remainingSizes).toEqual([5, 4, 3, 2]);
   });
 
+  it('never claims a cell for a sunk ship when a neighbour could own it', () => {
+    // Destroyer on (0,0)-(0,1), cruiser on (0,2)-(0,4): one unbroken row of
+    // hits, and the killing shot in the middle of it fits either ship.
+    const knowledge = readView(view([hit(0, 0), hit(0, 2), sunk(0, 1, 'destroyer')]));
+
+    expect([...knowledge.sunkCells]).toEqual(['0,1']);
+    expect(knowledge.unresolvedHits.map(coordinateKey).sort()).toEqual(['0,0', '0,2']);
+  });
+
   it('separates a sunk ship from an adjacent ship on the other axis', () => {
     const knowledge = readView(view([hit(2, 2), hit(3, 2), sunk(1, 2, 'cruiser'), hit(2, 3)]));
 

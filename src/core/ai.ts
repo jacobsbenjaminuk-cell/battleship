@@ -93,26 +93,37 @@ export function readView(view: OpponentView): Knowledge {
 }
 
 /**
- * Works out which of the outstanding hits the ship that just sank was made of:
- * the run of hits through `at` along whichever axis is long enough to hold it.
+ * Which of the outstanding hits the ship that just sank was made of. Several
+ * runs of hits through `at` can hold the ship — two ships lying end to end look
+ * like one long run — so only the cells every candidate agrees on are called
+ * sunk. The rest stay outstanding: a wrongly retired cell would tell the AI a
+ * live ship's hull is dead ground and stop it finishing that ship off.
  */
 function carveHull(pending: readonly Coordinate[], at: Coordinate, size: number): Coordinate[] {
   const hits = new Set(pending.map(coordinateKey));
-  let best: Coordinate[] | null = null;
-  let bestRun = Infinity;
+  const candidates: Coordinate[][] = [];
 
   for (const axis of AXES) {
     const run = [at, ...walk(hits, at, axis, 1), ...walk(hits, at, axis, -1)].sort(
       (a, b) => a.row - b.row || a.col - b.col,
     );
-    if (run.length < size || run.length >= bestRun) continue;
+    if (run.length < size) continue;
     const index = run.findIndex((cell) => sameCoordinate(cell, at));
-    const start = Math.min(index, run.length - size);
-    best = run.slice(start, start + size);
-    bestRun = run.length;
+    const first = Math.max(0, index - size + 1);
+    const last = Math.min(index, run.length - size);
+    for (let start = first; start <= last; start += 1) {
+      candidates.push(run.slice(start, start + size));
+    }
   }
 
-  return best ?? [at];
+  if (candidates.length === 0) return [at];
+  const counts = new Map<string, number>();
+  for (const candidate of candidates) {
+    for (const cell of candidate) {
+      counts.set(coordinateKey(cell), (counts.get(coordinateKey(cell)) ?? 0) + 1);
+    }
+  }
+  return candidates[0]!.filter((cell) => counts.get(coordinateKey(cell)) === candidates.length);
 }
 
 function walk(

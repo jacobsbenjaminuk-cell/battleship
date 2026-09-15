@@ -26,6 +26,32 @@ shot, so the numbers below reproduce exactly.
 
 Lower is better. Medians are ordered Hard < Medium < Easy.
 
+## Distribution
+
+Games finishing in each range of shots. The last column is how many games
+uniform random fire is expected to land in that range in theory, which is worth
+checking against the Easy column.
+
+| Shots | Easy | Medium | Hard | Easy expected |
+| --- | --- | --- | --- | --- |
+| 21-30 | 0 | 30 | 99 | 0 |
+| 31-40 | 0 | 247 | 636 | 0 |
+| 41-50 | 0 | 650 | 790 | 0 |
+| 51-60 | 0 | 787 | 357 | 0 |
+| 61-70 | 2 | 271 | 117 | 2 |
+| 71-80 | 28 | 15 | 1 | 28 |
+| 81-90 | 254 | 0 | 0 | 251 |
+| 91-100 | 1716 | 0 | 0 | 1719 |
+
+Easy's shot count is the AI's own count of shots to sink all 17 enemy cells; the
+sparring partner's 100 shots are not part of it and cannot inflate it. Random
+fire is slow by nature: the count is where the last of 17 marked cells turns up in
+a shuffle of 100, so it averages 17 x 101 / 18 =
+95.39 shots, and only
+0.3% of games finish inside 73. The measured Easy mean
+(95.45), median and tail all sit on that curve, so the ceiling of 100 is
+random fire eventually reaching the last cell, not a truncation artefact.
+
 ## How the game is run
 
 The AI takes the `player` seat, so it shoots first and cannot be cut short by
@@ -58,7 +84,10 @@ actually does:
   does not weight by how a human tends to place a fleet. The count is a plain
   placement count per unfired cell, upweighted around outstanding hits, and that
   costs it the last couple of shots against a tuned reference implementation.
-- **Sunk-ship deduction is a heuristic.** Which outstanding hits belonged to the
-  ship that just sank is inferred from the run of hits through the killing
-  shot. Where two ships lie adjacent and collinear that attribution can be
-  wrong, which shows up in the worst case rather than the median.
+- **Sunk-ship deduction is deliberately cautious.** Which outstanding hits
+  belonged to the ship that just sank is inferred from the runs of hits through
+  the killing shot, and where two ships lie end to end several runs fit. Only
+  the cells every candidate agrees on are retired (see BUGS.md); the ambiguous
+  ones stay outstanding rather than risking the AI writing off a live ship's
+  hull. It costs nothing here — the ambiguous case never arises from Medium's
+  or Hard's own shot order — but it is reachable under any other order.

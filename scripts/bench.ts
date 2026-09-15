@@ -44,7 +44,10 @@ type Summary = {
   readonly p90: number;
   readonly overSeventyThree: number;
   readonly millis: number;
+  readonly results: readonly number[];
 };
+
+const BUCKET = 10;
 
 function playGame(difficulty: Difficulty, seed: number): number {
   const random = createSeededRandom(seed);
@@ -131,7 +134,41 @@ function summarise(difficulty: Difficulty, results: readonly number[], millis: n
     p90: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))]!,
     overSeventyThree: sorted.filter((value) => value > 73).length,
     millis,
+    results: sorted,
   };
+}
+
+/**
+ * The chance random fire has sunk all 17 ship cells within `shots`: the chance
+ * that a random ordering of the 100 cells puts all 17 in the first `shots` of
+ * them, which is C(shots, 17) / C(100, 17).
+ */
+function randomFireByShot(shots: number): number {
+  let probability = 1;
+  for (let index = 0; index < TOTAL_SHIP_CELLS; index += 1) {
+    probability *= (shots - index) / (CELLS - index);
+  }
+  return Math.max(0, probability);
+}
+
+function histogram(summaries: readonly Summary[]): string {
+  const lowest = Math.min(...summaries.map((summary) => summary.best));
+  const floor = Math.floor(lowest / BUCKET) * BUCKET;
+  const rows: string[] = [];
+
+  for (let low = floor; low < CELLS; low += BUCKET) {
+    const high = low + BUCKET;
+    const counts = summaries.map(
+      (summary) => summary.results.filter((value) => value > low && value <= high).length,
+    );
+    const expected =
+      (randomFireByShot(high) - randomFireByShot(low)) * (summaries[0]?.games ?? 0);
+    rows.push(
+      `| ${low + 1}-${high} | ${counts.map((count) => count).join(' | ')} | ${expected.toFixed(0)} |`,
+    );
+  }
+
+  return rows.join('\n');
 }
 
 function median(sorted: readonly number[]): number {
@@ -191,6 +228,25 @@ ${rows}
 
 Lower is better. Medians are ordered Hard < Medium < Easy.
 
+## Distribution
+
+Games finishing in each range of shots. The last column is how many games
+uniform random fire is expected to land in that range in theory, which is worth
+checking against the Easy column.
+
+| Shots | Easy | Medium | Hard | Easy expected |
+| --- | --- | --- | --- | --- |
+${histogram(summaries)}
+
+Easy's shot count is the AI's own count of shots to sink all ${TOTAL_SHIP_CELLS} enemy cells; the
+sparring partner's 100 shots are not part of it and cannot inflate it. Random
+fire is slow by nature: the count is where the last of ${TOTAL_SHIP_CELLS} marked cells turns up in
+a shuffle of ${CELLS}, so it averages ${TOTAL_SHIP_CELLS} x ${CELLS + 1} / ${TOTAL_SHIP_CELLS + 1} =
+${((TOTAL_SHIP_CELLS * (CELLS + 1)) / (TOTAL_SHIP_CELLS + 1)).toFixed(2)} shots, and only
+${(randomFireByShot(73) * 100).toFixed(1)}% of games finish inside 73. The measured Easy mean
+(${summaries[0]!.mean.toFixed(2)}), median and tail all sit on that curve, so the ceiling of 100 is
+random fire eventually reaching the last cell, not a truncation artefact.
+
 ## How the game is run
 
 The AI takes the \`player\` seat, so it shoots first and cannot be cut short by
@@ -223,10 +279,13 @@ actually does:
   does not weight by how a human tends to place a fleet. The count is a plain
   placement count per unfired cell, upweighted around outstanding hits, and that
   costs it the last couple of shots against a tuned reference implementation.
-- **Sunk-ship deduction is a heuristic.** Which outstanding hits belonged to the
-  ship that just sank is inferred from the run of hits through the killing
-  shot. Where two ships lie adjacent and collinear that attribution can be
-  wrong, which shows up in the worst case rather than the median.
+- **Sunk-ship deduction is deliberately cautious.** Which outstanding hits
+  belonged to the ship that just sank is inferred from the runs of hits through
+  the killing shot, and where two ships lie end to end several runs fit. Only
+  the cells every candidate agrees on are retired (see BUGS.md); the ambiguous
+  ones stay outstanding rather than risking the AI writing off a live ship's
+  hull. It costs nothing here — the ambiguous case never arises from Medium's
+  or Hard's own shot order — but it is reachable under any other order.
 `;
 }
 
