@@ -38,11 +38,11 @@ function StatusBar({ state }: { readonly state: GameState }) {
   const yourTurn = state.turn === 'player';
   return (
     <div className="flex flex-col gap-3 bg-panel px-4 py-3">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <span className="shrink-0 text-xs tracking-[0.2em] uppercase">
           {state.phase === 'gameover' ? 'Battle over' : yourTurn ? 'Your turn' : 'Enemy turn'}
         </span>
-        <span className="min-h-4 truncate text-xs text-miss-mark" aria-hidden>
+        <span className="min-h-4 min-w-0 text-xs text-miss-mark sm:text-right" aria-hidden>
           {state.message}
         </span>
       </div>
