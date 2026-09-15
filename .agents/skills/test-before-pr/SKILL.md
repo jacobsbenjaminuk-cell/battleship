@@ -88,6 +88,20 @@ dispatch reducer actions or read hidden ship positions to finish a game.
   cannot remain visible for an input-only recording, capture CDP console,
   runtime exceptions, and failed response events throughout, and explicitly
   state this alternative in the testing report.
+- For out-of-turn or repeat-shot tests, do not use Playwright locator `click()`
+  on an `aria-disabled` gridcell: it waits for enabled state, potentially
+  postponing the action until the next turn. Use native `page.mouse.click()`
+  at the cell's bounding-box center, and log the action timing and counters.
+- Inspect both boards before the first shot, during the first enemy delay,
+  and after the first reply. Content-dependent sizing may differ while only
+  one board has a shot marker; later-game screenshots alone can miss this.
+- Test placement at human pace and as a sub-frame burst (five Enters or
+  clicks on distinct rows within ~50ms total). Both must place five different
+  ships in order; record the actual selected ship before each press, not only
+  the intended sequence. Clear and Randomise must leave Carrier selected.
+- After Play again, inspect `document.activeElement` before pressing Tab,
+  then confirm Tab recovers a usable placement control. A reset announcement
+  alone does not demonstrate restored keyboard focus.
 
 ### Devin Secrets Needed
 

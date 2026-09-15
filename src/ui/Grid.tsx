@@ -142,14 +142,14 @@ export function Grid({
   };
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex w-full min-w-0 max-w-md flex-col gap-3 lg:flex-1 lg:basis-0">
       <h2 className="text-xs tracking-[0.2em] text-muted uppercase">{title}</h2>
       <div
         ref={gridRef}
         role="grid"
         aria-label={title}
         aria-readonly={!interactive}
-        className={`inline-block touch-none p-2 select-none ${
+        className={`block w-full touch-none p-2 select-none ${
           active ? 'bg-panel outline outline-1 outline-steel' : 'bg-panel'
         }`}
         onPointerMove={handlePointerMove}
