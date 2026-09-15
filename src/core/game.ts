@@ -1,6 +1,7 @@
 import {
   EMPTY_BOARD,
   clearBoard,
+  dragPlacement,
   hasBeenFiredAt,
   isFleetComplete,
   isFleetDestroyed,
@@ -8,8 +9,9 @@ import {
   randomBoard,
   removeShip,
   resolveShot,
-  type RandomSource,
+  shipSpec,
 } from './board';
+import type { RandomSource } from './random';
 import { formatCoordinate, isOnBoard } from './coordinates';
 import {
   BOARD_SIZE,
@@ -26,6 +28,7 @@ import {
 
 export type GameAction =
   | { readonly type: 'place'; readonly shipId: ShipId; readonly origin: Coordinate; readonly orientation: Orientation }
+  | { readonly type: 'drag-place'; readonly shipId: ShipId; readonly from: Coordinate; readonly to: Coordinate }
   | { readonly type: 'remove'; readonly shipId: ShipId }
   | { readonly type: 'clear' }
   | { readonly type: 'randomise' }
@@ -63,45 +66,57 @@ export function describeOutcome(at: Coordinate, outcome: ShotOutcome): string {
   return `${cell} hit and sunk the ${outcome.shipName}`;
 }
 
-export function gameReducer(state: GameState, action: GameAction): GameState {
-  switch (action.type) {
-    case 'place':
-      return applyPlacement(state, action);
-    case 'remove':
-      if (state.phase !== 'placement') return state;
-      return {
-        ...state,
-        player: { ...state.player, board: removeShip(state.player.board, action.shipId) },
-        message: null,
-      };
-    case 'clear':
-      if (state.phase !== 'placement') return state;
-      return {
-        ...state,
-        player: { ...state.player, board: clearBoard(state.player.board) },
-        message: null,
-      };
-    case 'randomise':
-      if (state.phase !== 'placement') return state;
-      return {
-        ...state,
-        player: { ...state.player, board: randomBoard() },
-        message: null,
-      };
-    case 'start':
-      if (state.phase !== 'placement') return state;
-      if (!isFleetComplete(state.player.board)) {
-        return { ...state, message: 'Place your whole fleet first.' };
-      }
-      return { ...state, phase: 'play', turn: 'player', message: 'Your turn.' };
-    case 'fire':
-      return applyShot(state, action.by, action.at);
-    case 'reset':
-      return createInitialState();
-    default:
-      return state;
-  }
+export type GameReducer = (state: GameState, action: GameAction) => GameState;
+
+/**
+ * Every source of randomness in a game — both fleets and the AI's shots when it
+ * is given the same source — comes from `random`, so one seed replays a game.
+ */
+export function createGameReducer(random: RandomSource = Math.random): GameReducer {
+  return function gameReducer(state: GameState, action: GameAction): GameState {
+    switch (action.type) {
+      case 'place':
+        return applyPlacement(state, action);
+      case 'drag-place':
+        return applyDrag(state, action);
+      case 'remove':
+        if (state.phase !== 'placement') return state;
+        return {
+          ...state,
+          player: { ...state.player, board: removeShip(state.player.board, action.shipId) },
+          message: null,
+        };
+      case 'clear':
+        if (state.phase !== 'placement') return state;
+        return {
+          ...state,
+          player: { ...state.player, board: clearBoard(state.player.board) },
+          message: null,
+        };
+      case 'randomise':
+        if (state.phase !== 'placement') return state;
+        return {
+          ...state,
+          player: { ...state.player, board: randomBoard(random) },
+          message: null,
+        };
+      case 'start':
+        if (state.phase !== 'placement') return state;
+        if (!isFleetComplete(state.player.board)) {
+          return { ...state, message: 'Place your whole fleet first.' };
+        }
+        return { ...state, phase: 'play', turn: 'player', message: 'Your turn.' };
+      case 'fire':
+        return applyShot(state, action.by, action.at);
+      case 'reset':
+        return createInitialState(random);
+      default:
+        return state;
+    }
+  };
 }
+
+export const gameReducer: GameReducer = createGameReducer();
 
 function applyPlacement(
   state: GameState,
@@ -118,6 +133,24 @@ function applyPlacement(
     player: { ...state.player, board: result.board },
     message: null,
   };
+}
+
+function applyDrag(
+  state: GameState,
+  action: Extract<GameAction, { type: 'drag-place' }>,
+): GameState {
+  if (state.phase !== 'placement') return state;
+  const spec = shipSpec(action.shipId);
+  if (!spec) return { ...state, message: PLACEMENT_REJECTIONS['unknown-ship'] };
+
+  const placement = dragPlacement(action.from, action.to, spec.size);
+  if (!placement) {
+    return {
+      ...state,
+      message: `The ${spec.name} is ${spec.size} cells long — release within ${spec.size} cells of where you started.`,
+    };
+  }
+  return applyPlacement(state, { type: 'place', shipId: action.shipId, ...placement });
 }
 
 function applyShot(state: GameState, by: Side, at: Coordinate): GameState {

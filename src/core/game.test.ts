@@ -28,6 +28,29 @@ describe('setup', () => {
     expect(gameReducer(randomised, { type: 'clear' }).player.board.ships).toHaveLength(0);
   });
 
+  it('places a dragged ship over the cells the drag covers', () => {
+    const state = gameReducer(createInitialState(), {
+      type: 'drag-place',
+      shipId: 'carrier',
+      from: { row: 0, col: 0 },
+      to: { row: 0, col: 2 },
+    });
+    const carrier = state.player.board.ships[0]!;
+    expect(carrier.orientation).toBe('horizontal');
+    expect(carrier.cells.map((cell) => cell.col)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('rejects a drag released beyond the ship instead of ignoring it', () => {
+    const state = gameReducer(createInitialState(), {
+      type: 'drag-place',
+      shipId: 'destroyer',
+      from: { row: 0, col: 0 },
+      to: { row: 0, col: 5 },
+    });
+    expect(state.player.board.ships).toHaveLength(0);
+    expect(state.message).toContain('Destroyer is 2 cells long');
+  });
+
   it('reports an overlapping placement instead of applying it', () => {
     const base = gameReducer(createInitialState(), {
       type: 'place',

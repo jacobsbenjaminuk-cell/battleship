@@ -54,5 +54,9 @@ src/
 - **The AI only sees `OpponentView`.** It exposes the board size and the AI's own
   shot history — no ship positions — so cheating is impossible by construction.
   New difficulties implement `AI.nextShot(view: OpponentView): Coordinate`.
+- **Randomness is injected.** `createGameReducer(random)`, `createInitialState`
+  and `createRandomAI` all take a `RandomSource` (defaulting to `Math.random`
+  only at the call site); give them one `createSeededRandom(seed)` stream and
+  the whole game — both fleets and every AI shot — replays exactly.
 - TypeScript is strict (including `noUncheckedIndexedAccess` and
   `exactOptionalPropertyTypes`); do not loosen it to make code compile.

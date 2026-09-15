@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FLEET,
+  dragPlacement,
   placeShip,
   removeShip,
   shipCells,
@@ -55,30 +56,31 @@ export function PlacementPhase({ state, dispatch }: PlacementPhaseProps) {
   );
 
   const handleUp = (coord: Coordinate) => {
-    const origin = dragOrigin;
+    const start = dragOrigin;
     setDragOrigin(null);
-    if (!origin || (origin.row === coord.row && origin.col === coord.col)) {
+    if (!start || (start.row === coord.row && start.col === coord.col)) {
       place(coord, orientation);
       return;
     }
-    const vertical = Math.abs(coord.row - origin.row) >= Math.abs(coord.col - origin.col);
-    const direction: Orientation = vertical ? 'vertical' : 'horizontal';
-    setOrientation(direction);
-    place({ row: Math.min(origin.row, coord.row), col: Math.min(origin.col, coord.col) }, direction);
+    const drag = dragPlacement(start, coord, spec.size);
+    if (drag) setOrientation(drag.orientation);
+    dispatch({ type: 'drag-place', shipId: spec.id, from: start, to: coord });
   };
 
   const preview = useMemo(() => {
     const base = ownBoardMarks(board);
     if (!hover) return base;
-    const direction: Orientation =
+    const dragging =
       dragOrigin && (dragOrigin.row !== hover.row || dragOrigin.col !== hover.col)
-        ? Math.abs(hover.row - dragOrigin.row) >= Math.abs(hover.col - dragOrigin.col)
-          ? 'vertical'
-          : 'horizontal'
-        : orientation;
-    const origin = dragOrigin
-      ? { row: Math.min(dragOrigin.row, hover.row), col: Math.min(dragOrigin.col, hover.col) }
-      : hover;
+        ? dragOrigin
+        : null;
+    const drag = dragging ? dragPlacement(dragging, hover, spec.size) : null;
+    // A drag released too far away is rejected, so preview it as invalid.
+    if (dragging && !drag) {
+      return withPreview(base, shipCells(dragging, orientation, spec.size), false);
+    }
+    const origin = drag?.origin ?? hover;
+    const direction: Orientation = drag?.orientation ?? orientation;
     const cells = shipCells(origin, direction, spec.size);
     const valid = placeShip(removeShip(board, spec.id), spec.id, origin, direction).ok;
     return withPreview(base, cells, valid);

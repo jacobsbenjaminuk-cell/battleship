@@ -1,4 +1,5 @@
 import { allCoordinates, coordinateKey, isOnBoard, sameCoordinate } from './coordinates';
+import type { RandomSource } from './random';
 import {
   BOARD_SIZE,
   FLEET,
@@ -79,6 +80,36 @@ export function placeShip(
   return { ok: true, board: { ...board, ships: [...board.ships, ship] } };
 }
 
+export type DragPlacement = {
+  readonly origin: Coordinate;
+  readonly orientation: Orientation;
+};
+
+/**
+ * Turns a drag from `start` to `end` into a placement: the dominant axis sets
+ * the orientation, the drag direction sets which way the hull runs from the
+ * start cell, and releasing further away than the ship is long is rejected.
+ */
+export function dragPlacement(
+  start: Coordinate,
+  end: Coordinate,
+  size: number,
+): DragPlacement | null {
+  const rowDelta = end.row - start.row;
+  const colDelta = end.col - start.col;
+  const vertical = Math.abs(rowDelta) > Math.abs(colDelta);
+  const delta = vertical ? rowDelta : colDelta;
+  if (Math.abs(delta) + 1 > size) return null;
+
+  const back = delta < 0 ? size - 1 : 0;
+  return {
+    origin: vertical
+      ? { row: start.row - back, col: start.col }
+      : { row: start.row, col: start.col - back },
+    orientation: vertical ? 'vertical' : 'horizontal',
+  };
+}
+
 export function removeShip(board: Board, shipId: ShipId): Board {
   return { ...board, ships: board.ships.filter((ship) => ship.id !== shipId) };
 }
@@ -133,8 +164,6 @@ export function resolveShot(board: Board, target: Coordinate): ResolvedShot {
 
   return { board: { ships, incoming }, outcome };
 }
-
-export type RandomSource = () => number;
 
 export function randomBoard(random: RandomSource = Math.random): Board {
   let board = EMPTY_BOARD;

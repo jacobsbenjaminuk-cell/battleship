@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_BOARD,
+  dragPlacement,
   isFleetDestroyed,
   isSunk,
   placeShip,
@@ -16,6 +17,33 @@ function boardWith(...placements: Parameters<typeof placeShip>[1][]): Board {
     return result.board;
   }, EMPTY_BOARD);
 }
+
+describe('drag placement', () => {
+  // The 5-cell carrier dragged A1 -> A3 (row 0, cols 0 -> 2).
+  it('extends the hull along the dragged axis from the start cell', () => {
+    expect(dragPlacement({ row: 0, col: 0 }, { row: 0, col: 2 }, 5)).toEqual({
+      origin: { row: 0, col: 0 },
+      orientation: 'horizontal',
+    });
+  });
+
+  it('runs the hull backwards when dragged up or left', () => {
+    expect(dragPlacement({ row: 6, col: 4 }, { row: 4, col: 4 }, 3)).toEqual({
+      origin: { row: 4, col: 4 },
+      orientation: 'vertical',
+    });
+  });
+
+  it('rejects a release further away than the ship is long', () => {
+    expect(dragPlacement({ row: 0, col: 0 }, { row: 0, col: 2 }, 2)).toBeNull();
+    expect(dragPlacement({ row: 0, col: 0 }, { row: 9, col: 0 }, 5)).toBeNull();
+  });
+
+  it('takes the orientation from the dominant axis', () => {
+    expect(dragPlacement({ row: 0, col: 0 }, { row: 2, col: 1 }, 4)?.orientation).toBe('vertical');
+    expect(dragPlacement({ row: 0, col: 0 }, { row: 1, col: 3 }, 4)?.orientation).toBe('horizontal');
+  });
+});
 
 describe('fleet', () => {
   it('has 17 ship cells', () => {

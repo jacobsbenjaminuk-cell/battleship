@@ -1,5 +1,5 @@
 import { allCoordinates, coordinateKey } from './coordinates';
-import type { RandomSource } from './board';
+import type { RandomSource } from './random';
 import type { AI, Coordinate, OpponentView } from './types';
 
 /**
