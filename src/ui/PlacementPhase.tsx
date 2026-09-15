@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DIFFICULTIES,
   DIFFICULTY_BLURBS,
@@ -8,11 +8,13 @@ import {
   placeShip,
   removeShip,
   shipCells,
+  type Board,
   type Coordinate,
   type Difficulty,
   type GameState,
   type Orientation,
   type ShipId,
+  type ShipSpec,
 } from '../core';
 import type { GameAction } from '../core';
 import { Grid } from './Grid';
@@ -23,6 +25,8 @@ type PlacementPhaseProps = {
   readonly dispatch: (action: GameAction) => void;
   readonly difficulty: Difficulty;
   readonly onDifficultyChange: (difficulty: Difficulty) => void;
+  /** Move keyboard focus into the grid on mount, for when a reset lands here. */
+  readonly autoFocus?: boolean;
 };
 
 export function PlacementPhase({
@@ -30,22 +34,38 @@ export function PlacementPhase({
   dispatch,
   difficulty,
   onDifficultyChange,
+  autoFocus = false,
 }: PlacementPhaseProps) {
   const board = state.player.board;
   const placed = useMemo(() => new Set(board.ships.map((ship) => ship.id)), [board.ships]);
   const [orientation, setOrientation] = useState<Orientation>('horizontal');
-  const [selected, setSelected] = useState<ShipId>('carrier');
   const [hover, setHover] = useState<Coordinate | null>(null);
   const [dragOrigin, setDragOrigin] = useState<Coordinate | null>(null);
 
-  const nextUnplaced = FLEET.find((ship) => !placed.has(ship.id))?.id;
-  const previouslyPlaced = useRef(placed);
+  // The selection is derived, not synced: an explicit pick from the list holds
+  // only for the board it was made on, and any board change (a placement, a
+  // randomise, a clear) falls back to the next unplaced ship.
+  const [choice, setChoice] = useState<{ readonly id: ShipId; readonly board: Board } | null>(null);
+  const nextUnplaced = FLEET.find((ship) => !placed.has(ship.id))?.id ?? FLEET[0]!.id;
+  const selected = choice && choice.board === board ? choice.id : nextUnplaced;
+  const setSelected = (id: ShipId) => setChoice({ id, board });
+  const spec = FLEET.find((ship) => ship.id === selected) ?? FLEET[0]!;
 
-  useEffect(() => {
-    const justPlaced = !previouslyPlaced.current.has(selected) && placed.has(selected);
-    previouslyPlaced.current = placed;
-    if (justPlaced && nextUnplaced) setSelected(nextUnplaced);
-  }, [placed, selected, nextUnplaced]);
+  // Placements dispatched against this board that React has not rendered yet.
+  // Input can arrive faster than a render, so a handler cannot trust the
+  // selection its closure was rendered with: it skips ships already sent.
+  const queued = useRef<{ board: Board; ids: Set<ShipId> }>({ board, ids: new Set() });
+  const shipToPlace = (): ShipSpec => {
+    if (queued.current.board !== board) queued.current = { board, ids: new Set() };
+    const pending = queued.current.ids;
+    if (pending.size === 0) return spec;
+    return FLEET.find((ship) => !placed.has(ship.id) && !pending.has(ship.id)) ?? spec;
+  };
+  const send = (ship: ShipSpec, action: GameAction, valid: boolean) => {
+    if (queued.current.board !== board) queued.current = { board, ids: new Set() };
+    if (valid) queued.current.ids.add(ship.id);
+    dispatch(action);
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -57,25 +77,24 @@ export function PlacementPhase({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const spec = FLEET.find((ship) => ship.id === selected) ?? FLEET[0]!;
-
-  const place = useCallback(
-    (origin: Coordinate, direction: Orientation) => {
-      dispatch({ type: 'place', shipId: spec.id, origin, orientation: direction });
-    },
-    [dispatch, spec.id],
-  );
+  const place = (ship: ShipSpec, origin: Coordinate, direction: Orientation) => {
+    const valid = placeShip(removeShip(board, ship.id), ship.id, origin, direction).ok;
+    send(ship, { type: 'place', shipId: ship.id, origin, orientation: direction }, valid);
+  };
 
   const handleUp = (coord: Coordinate) => {
     const start = dragOrigin;
     setDragOrigin(null);
+    const ship = shipToPlace();
     if (!start || (start.row === coord.row && start.col === coord.col)) {
-      place(coord, orientation);
+      place(ship, coord, orientation);
       return;
     }
-    const drag = dragPlacement(start, coord, spec.size);
+    const drag = dragPlacement(start, coord, ship.size);
     if (drag) setOrientation(drag.orientation);
-    dispatch({ type: 'drag-place', shipId: spec.id, from: start, to: coord });
+    const valid =
+      drag !== null && placeShip(removeShip(board, ship.id), ship.id, drag.origin, drag.orientation).ok;
+    send(ship, { type: 'drag-place', shipId: ship.id, from: start, to: coord }, valid);
   };
 
   const preview = useMemo(() => {
@@ -106,6 +125,7 @@ export function PlacementPhase({
         marks={preview}
         active
         interactive
+        autoFocus={autoFocus}
         onCellDown={setDragOrigin}
         onCellUp={handleUp}
         onCellEnter={setHover}
@@ -115,7 +135,7 @@ export function PlacementPhase({
         }}
       />
 
-      <div className="flex w-full max-w-xs flex-col gap-4">
+      <div className="flex w-full max-w-xs shrink-0 flex-col gap-4">
         <p className="text-xs leading-relaxed text-muted">
           Tap a cell to drop the selected ship, or drag from bow to stern. With the keyboard,
           arrow to a cell and press Enter. Press
