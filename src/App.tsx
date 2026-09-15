@@ -1,3 +1,4 @@
+import { Announcer } from './ui/Announcer';
 import { FairnessNote } from './ui/Fairness';
 import { GameOver } from './ui/GameOver';
 import { PlacementPhase } from './ui/PlacementPhase';
@@ -9,10 +10,11 @@ export default function App() {
 
   return (
     <main className="mx-auto flex min-h-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
-      <header className="flex items-baseline justify-between">
+      <header className="flex items-baseline justify-between gap-4">
         <h1 className="text-sm tracking-[0.35em] uppercase">Battleship</h1>
         <span className="text-xs text-muted">10 × 10 · fleet 5 4 3 3 2</span>
       </header>
+      <Announcer state={state} />
 
       {state.phase === 'gameover' && (
         <GameOver

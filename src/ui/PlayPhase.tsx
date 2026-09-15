@@ -20,10 +20,11 @@ export function PlayPhase({ state, dispatch }: PlayPhaseProps) {
       <StatusBar state={state} />
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
         <Grid
-          title="Enemy waters — click to fire"
-          marks={targetBoardMarks(state.player.shots)}
+          title="Enemy waters — fire"
+          marks={targetBoardMarks(state.player.shots, state.opponent.board)}
           active={yourTurn}
           interactive={yourTurn}
+          autoFocus
           onCellUp={fire}
         />
         <Grid title="Your fleet" marks={ownBoardMarks(state.player.board)} active={!yourTurn} />
@@ -41,7 +42,9 @@ function StatusBar({ state }: { readonly state: GameState }) {
         <span className="shrink-0 text-xs tracking-[0.2em] uppercase">
           {state.phase === 'gameover' ? 'Battle over' : yourTurn ? 'Your turn' : 'Enemy turn'}
         </span>
-        <span className="min-h-4 truncate text-xs text-miss-mark">{state.message}</span>
+        <span className="min-h-4 truncate text-xs text-miss-mark" aria-hidden>
+          {state.message}
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted sm:grid-cols-4">
         <Counter label="Your shots" value={state.player.shots.length} />
@@ -87,8 +90,12 @@ function FleetList({ title, sunk }: { readonly title: string; readonly sunk: Rea
     <div className="flex flex-wrap items-center gap-3">
       <span className="tracking-[0.2em] uppercase">{title}</span>
       {FLEET.map((ship) => (
-        <span key={ship.id} className={sunk.has(ship.id) ? 'text-ember-bright line-through' : 'text-steel'}>
+        <span
+          key={ship.id}
+          className={sunk.has(ship.id) ? 'text-ember-bright line-through' : 'text-steel'}
+        >
           {ship.name}
+          {sunk.has(ship.id) && <span className="sr-only"> (sunk)</span>}
         </span>
       ))}
     </div>

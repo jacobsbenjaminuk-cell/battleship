@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { DIFFICULTY_LABELS, type Difficulty, type GameAction, type GameState } from '../core';
 import { FairnessReveal } from './Fairness';
 import type { Commitment } from './fairness';
@@ -12,6 +13,10 @@ type GameOverProps = {
 
 export function GameOver({ state, dispatch, commitment, seed, difficulty }: GameOverProps) {
   const won = state.winner === 'player';
+  const playAgain = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    playAgain.current?.focus();
+  }, []);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 bg-panel px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -25,6 +30,7 @@ export function GameOver({ state, dispatch, commitment, seed, difficulty }: Game
           </span>
         </div>
         <button
+          ref={playAgain}
           type="button"
           onClick={() => dispatch({ type: 'reset' })}
           className="bg-ember px-4 py-3 text-sm tracking-[0.15em] uppercase transition-colors duration-[120ms] ease-out hover:bg-ember-bright"

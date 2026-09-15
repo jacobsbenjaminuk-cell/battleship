@@ -59,3 +59,37 @@ state in the PR description.
 
 Open the PR, including the two screenshots and a one-line confirmation that
 tests, build, the full game run and the clean console all passed.
+
+## Keyboard and touch accessibility changes
+
+When input/accessibility behavior changes, record separate keyboard-only and
+mobile-touch games. Operate the real UI with native key/touch events, never
+dispatch reducer actions or read hidden ship positions to finish a game.
+
+- For keyboard runs, check the focused cell before firing, during the enemy
+  turn, after the enemy responds, and when gameover inserts content above the
+  board. A computed outline is not sufficient: confirm it is on screen.
+- Observe `[role=status]` mutations throughout play. Read each player result
+  before the enemy's delayed response replaces it, then read the enemy result.
+  Check two consecutive rejected repeat shots, not just the first rejection.
+  DOM announcements do not prove audible screen-reader delivery.
+- For touch, enable actual Chrome device/touch emulation at 375×812. Use
+  touchStart/move/end, not mouse drag or synthesized DOM click events.
+  Capture the ship preview while the touch remains held; confirm the placed
+  ship starts at the drag origin rather than at the release cell.
+- Check `document.documentElement.scrollWidth === innerWidth === 375` in
+  placement, play, and gameover. Use touch swipes to reach lower controls.
+- When attaching Playwright to a browser already using DevTools emulation,
+  its cached viewport settings may override device metrics during screenshot
+  capture. Configure matching dimensions, enable DevTools device mode last,
+  and verify dimensions after capture. Raw CDP `Page.captureScreenshot`
+  avoids Playwright's screenshot viewport restoration.
+- Keep console monitoring active from before loading the game. If DevTools
+  cannot remain visible for an input-only recording, capture CDP console,
+  runtime exceptions, and failed response events throughout, and explicitly
+  state this alternative in the testing report.
+
+### Devin Secrets Needed
+
+None for local gameplay. The production preview is a standalone browser app
+and does not require an account or backend credentials.
